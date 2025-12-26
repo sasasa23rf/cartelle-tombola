@@ -220,7 +220,7 @@
     <div id="game-screen">
         <div class="controls">
             <input type="number" id="input-number" placeholder="#" min="1" max="90">
-            <button onclick="extractNumber()">Inserisci</button>
+            <button id="btn-insert" onclick="extractNumber()">Inserisci</button>
         </div>
         <div id="history">Numeri usciti: <span id="extracted-list"></span></div>
         <div id="cards-container"></div>
@@ -355,6 +355,7 @@
     // Game Logic
     function extractNumber() {
         const input = document.getElementById('input-number');
+        const btn = document.getElementById('btn-insert');
         const num = parseInt(input.value);
 
         if (isNaN(num) || num < 1 || num > 90) {
@@ -373,7 +374,15 @@
         checkMatches(num);
         
         input.value = '';
-        input.focus();
+        input.blur(); // Close keyboard
+        
+        // Visual feedback
+        if (btn) {
+            btn.style.backgroundColor = '#27ae60'; // Green
+            setTimeout(() => {
+                btn.style.backgroundColor = ''; // Revert to CSS default
+            }, 1000);
+        }
     }
     
     // Allow pressing Enter to submit
