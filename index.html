@@ -221,6 +221,11 @@
         <div id="history">Numeri usciti: <span id="extracted-list"></span></div>
         <div id="cards-container"></div>
     </div>
+    
+    <footer style="margin-top: auto; padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.8rem; border-top: 1px solid #ddd; width: 100%;">
+        <p style="margin: 0;">App creata da Salvatore Costantino</p>
+        <p style="margin: 5px 0 0 0;">Ogni diritto è riservato</p>
+    </footer>
 </div>
 
 <script>
@@ -234,7 +239,6 @@
         let count = parseInt(countInput.value);
 
         if (isNaN(count) || count < 1) count = 1;
-        if (count > 10) count = 10;
 
         cards = [];
         extractedNumbers = new Set();
