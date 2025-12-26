@@ -203,7 +203,7 @@
 <body>
 
 <header>
-    <h1>Cartelle fortunate</h1>
+    <h1>Tombola da Gessica</h1>
 </header>
 
 <div class="container">
@@ -229,10 +229,40 @@
     <footer style="margin-top: auto; padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.8rem; border-top: 1px solid #ddd; width: 100%;">
         <p style="margin: 0;">App creata da Salvatore Costantino</p>
         <p style="margin: 5px 0 0 0;">Ogni diritto è riservato</p>
+        <button id="fullscreen-btn" onclick="toggleFullScreen()" style="margin-top: 15px; background: transparent; color: #7f8c8d; border: 1px solid #ccc; padding: 5px 10px; font-size: 0.75rem;">
+            ⛶ Schermo Intero
+        </button>
     </footer>
 </div>
 
 <script>
+    function toggleFullScreen() {
+        const doc = document.documentElement;
+        const btn = document.getElementById('fullscreen-btn');
+        
+        if (!document.fullscreenElement) {
+            if (doc.requestFullscreen) {
+                doc.requestFullscreen();
+            } else if (doc.mozRequestFullScreen) { // Firefox
+                doc.mozRequestFullScreen();
+            } else if (doc.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                doc.webkitRequestFullscreen();
+            } else if (doc.msRequestFullscreen) { // IE/Edge
+                doc.msRequestFullscreen();
+            }
+            
+            if (btn) btn.style.display = 'none';
+        }
+    }
+    
+    // Listen for fullscreen change to show button again if user exits manually
+    document.addEventListener('fullscreenchange', (event) => {
+        const btn = document.getElementById('fullscreen-btn');
+        if (!document.fullscreenElement && btn) {
+            btn.style.display = 'inline-block';
+        }
+    });
+
     // Game State
     let cards = []; // Array of card objects: { id, grid: [3][9], matches: 0 }
     let extractedNumbers = new Set();
