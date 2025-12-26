@@ -229,13 +229,84 @@
     <footer style="margin-top: auto; padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.8rem; border-top: 1px solid #ddd; width: 100%;">
         <p style="margin: 0;">App creata da Salvatore Costantino</p>
         <p style="margin: 5px 0 0 0;">Ogni diritto è riservato</p>
-        <button id="fullscreen-btn" onclick="toggleFullScreen()" style="margin-top: 15px; background: transparent; color: #7f8c8d; border: 1px solid #ccc; padding: 5px 10px; font-size: 0.75rem;">
-            ⛶ Schermo Intero
-        </button>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+            <button id="fullscreen-btn" onclick="toggleFullScreen()" style="background: transparent; color: #7f8c8d; border: 1px solid #ccc; padding: 5px 10px; font-size: 0.75rem;">
+                ⛶ Schermo Intero
+            </button>
+            <button id="reset-btn" onclick="showResetModal()" style="background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 5px 10px; font-size: 0.75rem;">
+                ↻ Reset Gioco
+            </button>
+        </div>
     </footer>
+
+    <!-- Custom Modal -->
+    <div id="reset-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%;">
+            <h3 style="margin-top: 0;">Reset Gioco</h3>
+            <p>Cosa vuoi fare?</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="resetKeepCards()" style="background-color: #3498db;">Rigioca (stesse cartelle)</button>
+                <button onclick="resetFull()" style="background-color: #e74c3c;">Nuova Partita (cambia cartelle)</button>
+                <button onclick="closeResetModal()" style="background-color: #95a5a6;">Annulla</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast" style="visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 2px; padding: 16px; position: fixed; z-index: 1001; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 17px; opacity: 0; transition: opacity 0.5s, bottom 0.5s;">
+        Messaggio
+    </div>
 </div>
 
 <script>
+    function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.style.visibility = "visible";
+        toast.style.opacity = "1";
+        toast.style.bottom = "50px"; // Move up slightly
+        
+        setTimeout(function(){ 
+            toast.style.visibility = "hidden";
+            toast.style.opacity = "0";
+            toast.style.bottom = "30px";
+        }, 3000);
+    }
+
+    function showResetModal() {
+        document.getElementById('reset-modal').style.display = 'flex';
+    }
+
+    function closeResetModal() {
+        document.getElementById('reset-modal').style.display = 'none';
+    }
+
+    function resetKeepCards() {
+        // Clear extracted numbers and matches
+        extractedNumbers.clear();
+        document.getElementById('extracted-list').textContent = '';
+        
+        cards.forEach(card => {
+            card.matches = 0;
+        });
+        
+        // Reset card order (sort by ID)
+        cards.sort((a, b) => a.id - b.id);
+        
+        renderCards();
+        document.getElementById('input-number').value = '';
+        closeResetModal();
+        // alert("Partita resettata! Le cartelle sono rimaste le stesse.");
+        showToast("Partita resettata! Le cartelle sono rimaste le stesse.");
+    }
+
+    function resetFull() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'block';
+        document.getElementById('input-number').value = '';
+        closeResetModal();
+    }
+
     function toggleFullScreen() {
         const doc = document.documentElement;
         const btn = document.getElementById('fullscreen-btn');
@@ -258,8 +329,10 @@
     // Listen for fullscreen change to show button again if user exits manually
     document.addEventListener('fullscreenchange', (event) => {
         const btn = document.getElementById('fullscreen-btn');
-        if (!document.fullscreenElement && btn) {
-            btn.style.display = 'inline-block';
+        const resetBtn = document.getElementById('reset-btn');
+        if (!document.fullscreenElement) {
+            if (btn) btn.style.display = 'inline-block';
+            if (resetBtn) resetBtn.style.display = 'inline-block';
         }
     });
 
@@ -291,11 +364,8 @@
     }
 
     function resetGame() {
-        if(confirm("Vuoi davvero ricominciare?")) {
-            document.getElementById('game-screen').style.display = 'none';
-            document.getElementById('setup-screen').style.display = 'block';
-            document.getElementById('input-number').value = '';
-        }
+        // Removed original confirm dialog
+        showResetModal();
     }
 
     // Card Generation Logic
@@ -389,12 +459,14 @@
         const num = parseInt(input.value);
 
         if (isNaN(num) || num < 1 || num > 90) {
-            alert("Inserisci un numero valido da 1 a 90");
+            // alert("Inserisci un numero valido da 1 a 90");
+            showToast("Inserisci un numero valido da 1 a 90");
             return;
         }
 
         if (extractedNumbers.has(num)) {
-            alert("Numero già inserito!");
+            // alert("Numero già inserito!");
+            showToast("Numero già inserito!");
             input.value = '';
             return;
         }
