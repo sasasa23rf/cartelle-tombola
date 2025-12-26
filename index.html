@@ -412,9 +412,10 @@
             // Header
             const header = document.createElement('div');
             header.className = 'card-header';
+            const missing = card.matches - 15;
             header.innerHTML = `
                 <span>Cartella #${card.id}</span>
-                <span class="match-count">Punti: ${card.matches}</span>
+                <span class="match-count">Tombola: ${missing}</span>
             `;
             cardEl.appendChild(header);
 
