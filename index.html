@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tombola Manager</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         :root {
             --primary-color: #2c3e50;
             --accent-color: #e74c3c;
@@ -46,6 +50,7 @@
         .container {
             width: 95%;
             max-width: 600px;
+            margin: 0 auto;
             padding: 1rem 0;
             display: flex;
             flex-direction: column;
@@ -216,7 +221,6 @@
         <div class="controls">
             <input type="number" id="input-number" placeholder="#" min="1" max="90">
             <button onclick="extractNumber()">Inserisci</button>
-            <button onclick="resetGame()" style="background-color: #95a5a6;">Reset</button>
         </div>
         <div id="history">Numeri usciti: <span id="extracted-list"></span></div>
         <div id="cards-container"></div>
