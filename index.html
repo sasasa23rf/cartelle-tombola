@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tombola Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -171,7 +172,7 @@
         .cell.marked {
             background-color: var(--highlight-color);
             color: white;
-            animation: pop 0.3s ease;
+            /* animation: pop 0.3s ease; Removed per user request */
         }
 
         /* Mobile Optimization */
@@ -198,32 +199,139 @@
             margin-bottom: 10px;
             word-wrap: break-word;
         }
+
+        .action-card {
+            background: #f1c40f; /* Yellow/Gold for special card */
+            color: #2c3e50;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border: 2px solid #f39c12;
+            animation: pop 0.5s ease;
+        }
+        
+        .action-title {
+            display: block;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            opacity: 0.8;
+            letter-spacing: 1px;
+        }
+        .card-flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            font-weight: bold;
+            color: white;
+            z-index: 10;
+            animation: fadeInOut 1s ease-in-out forwards;
+        }
+
+        .flash-green {
+            background-color: #27ae60;
+        }
+
+        .flash-red {
+            background-color: #c0392b;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #player-header-name {
+            margin: 5px 0 0 0;
+            font-size: 2rem;
+            font-weight: 900;
+            color: transparent;
+            -webkit-text-stroke: 1px white; /* Outline text */
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Tombola da Gessica</h1>
+    <h1>La tombola di pallavolo</h1>
+    <h2 id="player-header-name"></h2>
 </header>
 
 <div class="container">
     <!-- Setup Screen -->
     <div id="setup-screen">
-        <h2>Scegli quante cartelle vuoi acquistare</h2>
-        <p>Numero cartelle selezionate</p>
-        <input type="number" id="card-count" min="1" max="10" value="1">
+        <p>Inserisci i tuoi dati:</p>
+        <input type="text" id="player-name" placeholder="Nome Giocatore" style="padding: 10px; font-size: 1.2rem; width: 200px; text-align: center; border: 2px solid #ddd; border-radius: 5px; margin: 10px 0;">
+        <br>
+        <input type="password" id="player-password" placeholder="Password" style="padding: 10px; font-size: 1.2rem; width: 200px; text-align: center; border: 2px solid #ddd; border-radius: 5px; margin: 10px 0;">
         <br><br>
-        <button onclick="startGame()">Genera Cartelle</button>
+        <button onclick="startRoulette()">Entra</button>
+    </div>
+
+    <!-- Roulette Screen -->
+    <div id="roulette-screen" style="display: none;">
+        <h2>Ciao, <span id="roulette-player-name" style="color: var(--secondary-color);"></span>!</h2>
+        
+        <div id="action-draw-container" style="text-align: center; margin-bottom: 2rem;">
+            <p>Premi il pulsante per pescare la tua Carta Azione</p>
+            <button id="draw-action-btn" class="btn">PESCA CARTA AZIONE</button>
+        </div>
+
+        <div id="roulette-card-container"></div>
+        <div id="roulette-controls"></div>
+    </div>
+
+    <!-- Card Selection Screen -->
+    <div id="card-selection-screen" style="display: none; text-align: center;">
+        <h2>Scegli la tua Cartella</h2>
+        <p>Scorri e tocca la cartella che preferisci (1 su 100)</p>
+        <div id="selection-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; padding: 10px; max-height: 70vh; overflow-y: auto;"></div>
     </div>
 
     <!-- Game Screen -->
     <div id="game-screen">
-        <div class="controls">
-            <input type="tel" inputmode="decimal" pattern="[0-9]*" id="input-number" placeholder="#" autocomplete="off">
-            <button id="btn-insert" onclick="extractNumber()">INSERISCI</button>
+        <!-- Controls removed as per request -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+             <div id="history">Ultimi 5 Numeri: <span id="extracted-list"></span></div>
+             <div id="lives-display" style="font-size: 1.2rem; font-weight: bold; color: #e74c3c;">
+                 ❤️ <span id="lives-count">2</span>
+             </div>
         </div>
-        <div id="history">Numeri usciti: <span id="extracted-list"></span></div>
         <div id="cards-container"></div>
+        
+        <!-- Action Card Container -->
+        <div id="action-card-container"></div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0; flex-wrap: wrap;">
+            <button id="btn-players" onclick="showPlayersModal()" style="background-color: #8e44ad; flex: 1; max-width: 200px;">
+                GIOCATORI
+            </button>
+            <button id="btn-attack" onclick="showAttackModal()" style="background-color: #c0392b; flex: 1; max-width: 200px;">
+                ATTACCA
+            </button>
+            <button id="btn-exchange-lives" onclick="showExchangeOptionsModal()" style="background-color: #f39c12; flex: 1; max-width: 200px;">
+                SPIA 📲
+            </button>
+        </div>
     </div>
     
     <footer style="margin-top: auto; padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.8rem; border-top: 1px solid #ddd; width: 100%;">
@@ -232,9 +340,6 @@
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
             <button id="fullscreen-btn" onclick="toggleFullScreen()" style="background: transparent; color: #7f8c8d; border: 1px solid #ccc; padding: 5px 10px; font-size: 0.75rem;">
                 ⛶ Schermo Intero
-            </button>
-            <button id="reset-btn" onclick="showResetModal()" style="background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 5px 10px; font-size: 0.75rem;">
-                ↻ Reset Gioco
             </button>
         </div>
     </footer>
@@ -252,6 +357,121 @@
         </div>
     </div>
     
+    <!-- Remove Number Modal -->
+    <div id="remove-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0;">Rimuovi Numero</h3>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Tocca un numero per rimuoverlo</p>
+            <div id="remove-list" style="overflow-y: auto; flex-grow: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px;">
+                <!-- Numbers will go here -->
+            </div>
+            <button onclick="closeRemoveModal()" style="background-color: #95a5a6;">Chiudi</button>
+        </div>
+    </div>
+    
+    <!-- Pick Number Modal -->
+    <div id="pick-number-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0;">Scegli un numero</h3>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Tocca un numero per estrarlo</p>
+            <div id="pick-number-list" style="overflow-y: auto; flex-grow: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 15px;">
+                <!-- Numbers will go here -->
+            </div>
+            <button onclick="closePickNumberModal()" style="background-color: #95a5a6;">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Exchange Options Modal -->
+    <div id="exchange-options-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%;">
+            <h3 style="margin-top: 0; color: #f39c12;">Scambia Vite</h3>
+            <p style="margin-bottom: 20px;">Cosa vuoi sapere?<br><span style="font-size: 0.8rem; color: #e74c3c;">(Costo: 1 Vita)</span></p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="showLivesPeekModal()" style="background-color: #e67e22;">Vedi vite avversario</button>
+                <button onclick="showMissingNumbersPeekModal()" style="background-color: #f1c40f; color: #333;">Vedi numeri mancanti</button>
+                <button onclick="closeExchangeOptionsModal()" style="background-color: #95a5a6;">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Peek Lives Modal -->
+    <div id="peek-lives-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; color: #e67e22;">Scegli chi spiare</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 15px;">Pagherai 1 vita per vedere le sue vite.</p>
+            <div id="peek-lives-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: 15px; text-align: left;">
+                <p>Caricamento...</p>
+            </div>
+            <button onclick="closePeekLivesModal()" style="background-color: #95a5a6;">Annulla</button>
+        </div>
+    </div>
+    
+    <!-- Peek Missing Modal -->
+    <div id="peek-missing-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; color: #f1c40f;">Scegli chi spiare</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 15px;">Pagherai 1 vita per vedere i numeri mancanti.</p>
+            <div id="peek-missing-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: 15px; text-align: left;">
+                <p>Caricamento...</p>
+            </div>
+            <button onclick="closePeekMissingModal()" style="background-color: #95a5a6;">Annulla</button>
+        </div>
+    </div>
+
+    <!-- Attack Modal -->
+    <div id="attack-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0; color: #c0392b;">Scegli chi attaccare</h3>
+            <div id="attack-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: 15px; text-align: left;">
+                <p>Caricamento...</p>
+            </div>
+            <button onclick="closeAttackModal()" style="background-color: #95a5a6;">Annulla</button>
+        </div>
+    </div>
+
+    <!-- Players Modal -->
+    <div id="players-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 300px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="margin-top: 0;">Giocatori</h3>
+            <div id="players-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: 15px; text-align: left;">
+                <!-- Players will go here -->
+                <p>Caricamento...</p>
+            </div>
+            <button onclick="closePlayersModal()" style="background-color: #95a5a6;">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Center Notification -->
+    <div id="center-notification" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div style="background-color: rgba(0, 0, 0, 0.9); color: white; padding: 30px; border-radius: 15px; font-size: 1.5rem; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 90%; min-width: 300px; position: relative;">
+            <div id="center-notification-text" style="margin-bottom: 20px;">Messaggio Centrale</div>
+            <button onclick="closeCenterNotification()" style="background-color: #e74c3c; color: white; border: none; padding: 10px 30px; font-size: 1.2rem; border-radius: 5px; cursor: pointer;">CHIUDI</button>
+        </div>
+    </div>
+
+    <!-- App Confirmation Modal -->
+    <div id="app-confirmation-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 2100; align-items: center; justify-content: center;">
+        <div style="background-color: white; color: #333; padding: 30px; border-radius: 15px; font-size: 1.2rem; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.3); max-width: 90%; min-width: 300px;">
+            <div id="app-confirmation-text" style="margin-bottom: 25px; font-weight: bold;">Sei sicuro?</div>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="app-confirm-btn" style="background-color: #27ae60; color: white; border: none; padding: 12px 25px; font-size: 1rem; border-radius: 5px; cursor: pointer;">CONFERMA</button>
+                <button onclick="closeAppConfirmation()" style="background-color: #e74c3c; color: white; border: none; padding: 12px 25px; font-size: 1rem; border-radius: 5px; cursor: pointer;">ANNULLA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Math Question Modal -->
+    <div id="math-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="background-color: white; color: #333; padding: 30px; border-radius: 15px; font-size: 1.5rem; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 90%; min-width: 320px;">
+            <h3 style="margin-top: 0; color: #2c3e50;">Domanda Bonus!</h3>
+            <div id="math-question-text" style="margin-bottom: 25px; font-weight: bold; font-size: 2rem; color: #e67e22;">? + ? = ?</div>
+            <p style="font-size: 1rem; margin-bottom: 20px; color: #7f8c8d;">Scegli la risposta corretta:</p>
+            <div id="math-answers-container" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                <!-- Answers will be injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" style="visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 2px; padding: 16px; position: fixed; z-index: 1001; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 17px; opacity: 0; transition: opacity 0.5s, bottom 0.5s;">
         Messaggio
@@ -259,6 +479,45 @@
 </div>
 
 <script>
+    // Initialize Supabase
+    const SUPABASE_URL = 'https://xoqvgrcvvhseufgszhhe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvcXZncmN2dmhzZXVmZ3N6aGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1NTcwNjMsImV4cCI6MjA3NjEzMzA2M30.WYcW3WGqd8tO0wuhGEZof4ohEOvvXEe-jNb2VUMtY2E';
+    const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+    function showCenterNotification(message) {
+        const el = document.getElementById('center-notification');
+        const textEl = document.getElementById('center-notification-text');
+        textEl.textContent = message;
+        el.style.display = 'flex';
+    }
+
+    function closeCenterNotification() {
+        document.getElementById('center-notification').style.display = 'none';
+    }
+
+    function closeAppConfirmation() {
+        document.getElementById('app-confirmation-modal').style.display = 'none';
+    }
+
+    function showAppConfirmation(message, onConfirmCallback) {
+        const modal = document.getElementById('app-confirmation-modal');
+        const text = document.getElementById('app-confirmation-text');
+        const confirmBtn = document.getElementById('app-confirm-btn');
+        
+        text.textContent = message;
+        
+        // Clone button to remove old event listeners
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        
+        newBtn.onclick = () => {
+            closeAppConfirmation();
+            if (onConfirmCallback) onConfirmCallback();
+        };
+        
+        modal.style.display = 'flex';
+    }
+
     function showToast(message) {
         const toast = document.getElementById("toast");
         toast.textContent = message;
@@ -281,6 +540,170 @@
         document.getElementById('reset-modal').style.display = 'none';
     }
 
+    // Remove Number Logic
+    function showRemoveModal() {
+        const listContainer = document.getElementById('remove-list');
+        listContainer.innerHTML = '';
+        
+        if (extractedNumbers.size === 0) {
+            listContainer.innerHTML = '<p style="grid-column: 1/-1;">Nessun numero estratto</p>';
+        } else {
+            // Sort numbers for easier finding
+            const sorted = Array.from(extractedNumbers).sort((a,b) => a-b);
+            sorted.forEach(num => {
+                const btn = document.createElement('button');
+                btn.textContent = num;
+                btn.style.backgroundColor = '#ecf0f1';
+                btn.style.color = '#333';
+                btn.style.padding = '8px';
+                btn.style.border = '1px solid #bdc3c7';
+                btn.onclick = () => removeNumber(num);
+                listContainer.appendChild(btn);
+            });
+        }
+        
+        document.getElementById('remove-modal').style.display = 'flex';
+    }
+
+    function closeRemoveModal() {
+        document.getElementById('remove-modal').style.display = 'none';
+    }
+
+    // Players Modal Logic
+    async function showPlayersModal() {
+        document.getElementById('players-modal').style.display = 'flex';
+        const list = document.getElementById('players-list');
+        list.innerHTML = '<p>Caricamento...</p>';
+        
+        if (!supabaseClient) {
+            list.innerHTML = '<p style="color: red;">Errore: Supabase non inizializzato.</p>';
+            return;
+        }
+        
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('*')
+                .order('created_at', { ascending: false });
+                
+            if (error) throw error;
+            
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<p>Nessun giocatore registrato.</p>';
+            } else {
+                data.forEach(player => {
+                    const div = document.createElement('div');
+                    div.style.padding = '8px';
+                    div.style.borderBottom = '1px solid #eee';
+                    div.textContent = player.name;
+                    list.appendChild(div);
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching players:', err);
+            list.innerHTML = `<p style="color: red;">Errore nel caricamento: ${err.message}</p>`;
+        }
+    }
+
+    function closePlayersModal() {
+        document.getElementById('players-modal').style.display = 'none';
+    }
+
+    // Pick Number Logic
+    function showPickNumberModal(actionText = '') {
+        const listContainer = document.getElementById('pick-number-list');
+        listContainer.innerHTML = '';
+        
+        // Find missing numbers (1-90)
+        let missingNumbers = [];
+        for (let i = 1; i <= 90; i++) {
+            if (!extractedNumbers.has(i)) {
+                missingNumbers.push(i);
+            }
+        }
+        
+        if (missingNumbers.length === 0) {
+            listContainer.innerHTML = '<p style="grid-column: 1/-1;">Tutti i numeri sono stati estratti!</p>';
+        } else {
+            missingNumbers.forEach(num => {
+                const btn = document.createElement('button');
+                btn.textContent = num;
+                btn.style.backgroundColor = '#ecf0f1';
+                btn.style.color = '#333';
+                btn.style.padding = '8px';
+                btn.style.border = '1px solid #bdc3c7';
+                btn.onclick = () => forceExtractNumber(num, actionText);
+                listContainer.appendChild(btn);
+            });
+        }
+        
+        document.getElementById('pick-number-modal').style.display = 'flex';
+    }
+
+    function closePickNumberModal() {
+        document.getElementById('pick-number-modal').style.display = 'none';
+    }
+
+    async function forceExtractNumber(num, actionText = '') {
+        if (!supabaseClient) {
+             showToast("Errore: Connessione al database mancante.");
+             return;
+        }
+
+        try {
+            // Insert into extracted_numbers
+            const { error } = await supabaseClient
+                .from('extracted_numbers')
+                .insert([{ number: num }]);
+
+            if (error) {
+                console.error('Error forcing number:', error);
+                if (error.code === '23505') { // Unique violation
+                    showToast(`Il numero ${num} è già stato estratto!`);
+                } else {
+                    showToast("Errore durante l'estrazione.");
+                }
+            } else {
+                showToast(`Numero ${num} estratto con successo!`);
+                closePickNumberModal();
+                // No need to manually update local state, polling will catch it.
+                // But for immediate feedback we could do it.
+                // Let's rely on polling or call loadExistingNumbers() immediately.
+                loadExistingNumbers();
+                
+                // Lock action card
+                if (actionText) lockActionCard(actionText);
+            }
+        } catch (err) {
+            console.error('Exception forcing number:', err);
+            showToast("Si è verificato un errore.");
+        }
+    }
+
+    function removeNumber(num) {
+        if (!extractedNumbers.has(num)) return;
+        
+        extractedNumbers.delete(num);
+        updateHistory();
+        
+        // Recalculate matches for all cards
+        cards.forEach(card => {
+            card.matches = 0;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (extractedNumbers.has(card.grid[r][c])) {
+                        card.matches++;
+                    }
+                }
+            }
+        });
+        
+        renderCards();
+        closeRemoveModal();
+        showToast(`Numero ${num} rimosso!`);
+    }
+
     function resetKeepCards() {
         // Clear extracted numbers and matches
         extractedNumbers.clear();
@@ -294,7 +717,7 @@
         cards.sort((a, b) => a.id - b.id);
         
         renderCards();
-        document.getElementById('input-number').value = '';
+        // document.getElementById('input-number').value = '';
         closeResetModal();
         // alert("Partita resettata! Le cartelle sono rimaste le stesse.");
         showToast("Partita resettata! Le cartelle sono rimaste le stesse.");
@@ -303,7 +726,7 @@
     function resetFull() {
         document.getElementById('game-screen').style.display = 'none';
         document.getElementById('setup-screen').style.display = 'block';
-        document.getElementById('input-number').value = '';
+        // document.getElementById('input-number').value = '';
         closeResetModal();
     }
 
@@ -329,44 +752,1945 @@
     // Listen for fullscreen change to show button again if user exits manually
     document.addEventListener('fullscreenchange', (event) => {
         const btn = document.getElementById('fullscreen-btn');
-        const resetBtn = document.getElementById('reset-btn');
         if (!document.fullscreenElement) {
             if (btn) btn.style.display = 'inline-block';
-            if (resetBtn) resetBtn.style.display = 'inline-block';
         }
     });
 
     // Game State
     let cards = []; // Array of card objects: { id, grid: [3][9], matches: 0 }
     let extractedNumbers = new Set();
+    let currentPlayerId = null;
+    let attackedPlayers = new Set(); // Stores IDs of players I have already attacked
 
-    // Setup Logic
-    function startGame() {
-        const countInput = document.getElementById('card-count');
-        let count = parseInt(countInput.value);
+    // Polling Mechanism
+    let pollingInterval = null;
+    let swapPollingInterval = null;
+    let mathPollingInterval = null;
+    let bonusPollingInterval = null;
+    let attackPollingInterval = null;
 
-        if (isNaN(count) || count < 1) count = 1;
-
-        cards = [];
-        extractedNumbers = new Set();
-        document.getElementById('extracted-list').textContent = '';
+    function startPolling() {
+        if (pollingInterval) clearInterval(pollingInterval);
+        loadExistingNumbers(); // Initial load
+        pollingInterval = setInterval(loadExistingNumbers, 1000); // Poll every 1 second
         
-        // Generate Cards
-        for (let i = 0; i < count; i++) {
-            cards.push(generateCard(i + 1));
+        // Start polling for swaps
+        if (swapPollingInterval) clearInterval(swapPollingInterval);
+        swapPollingInterval = setInterval(checkSwapRequests, 2000); // Poll every 2 seconds
+
+        // Start polling for math questions
+        if (mathPollingInterval) clearInterval(mathPollingInterval);
+        mathPollingInterval = setInterval(checkMathQuestion, 2000);
+
+        // Start polling for bonus
+        if (bonusPollingInterval) clearInterval(bonusPollingInterval);
+        bonusPollingInterval = setInterval(checkBonus, 3000);
+
+        // Start polling for attacks
+        if (attackPollingInterval) clearInterval(attackPollingInterval);
+        attackPollingInterval = setInterval(checkIncomingAttacks, 3000);
+    }
+
+    async function checkIncomingAttacks() {
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('attacco')
+                .eq('id', currentPlayerId)
+                .single();
+
+            if (error) throw error;
+
+            if (data && data.attacco) {
+                // Check format: "NAME#####RESULT" or "NAME#####ID#####RESULT"
+                const parts = data.attacco.split('#####');
+                if (parts.length >= 2) {
+                    const attackerName = parts[0];
+                    let attackerResult;
+                    let attackerId = null;
+
+                    if (parts.length === 3) {
+                         attackerId = parts[1];
+                         attackerResult = parts[2];
+                    } else {
+                         attackerResult = parts[1];
+                    }
+
+                    if (attackerId) {
+                        // Block return attack ONLY if not a draw
+                        if (attackerResult !== "PAREGGIO") {
+                            attackedPlayers.add(parseInt(attackerId) || attackerId);
+                        }
+                    } else if (attackerName) {
+                        // Fallback: try to block by name (requires finding ID, skipping for now to avoid query, 
+                        // or user should just rely on new format)
+                    }
+
+                    // attackerResult is from the attacker's perspective.
+                    // If attacker "VINTO", then I (victim) "PERSO".
+                    // If attacker "PERSO", then I (victim) "VINTO".
+                    
+                    let myResultMsg = "";
+                    let myResultTitle = "";
+                    
+                    if (attackerResult === "VINTO") {
+                        myResultTitle = "💔 SEI STATO ATTACCATO!";
+                        myResultMsg = `${attackerName} ti ha attaccato e ha VINTO!\n(Lui aveva meno numeri mancanti di te)`;
+                        // If attacker WON, I LOST. So I lose a life.
+                        // Wait, did the attacker update my lives already?
+                        // In executeAttack, I wrote: "if (dbResultStatus === 'VINTO') { await decreaseLives(targetPlayer.id); }"
+                        // So the DB is already updated by the attacker.
+                        // I just need to refresh my local UI for lives.
+                        refreshLives();
+                    } else if (attackerResult === "PERSO") {
+                        myResultTitle = "🛡️ ATTACCO RESPINTO!";
+                        myResultMsg = `${attackerName} ti ha attaccato ma ha PERSO!\n(Tu avevi meno numeri mancanti di lui)`;
+                    } else {
+                        myResultTitle = "⚖️ ATTACCO PAREGGIATO";
+                        myResultMsg = `${attackerName} ti ha attaccato ed è finito in PAREGGIO.`;
+                    }
+                    
+                    // Show modal
+                    showIncomingAttackModal(myResultTitle, myResultMsg);
+                    
+                    // Reset column
+                    await supabaseClient
+                        .from('players')
+                        .update({ attacco: null })
+                        .eq('id', currentPlayerId);
+                }
+            }
+        } catch (err) {
+            console.error("Error checking attacks:", err);
+        }
+    }
+
+    async function refreshLives() {
+        if (!supabaseClient || !currentPlayerId) return;
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('vite')
+                .eq('id', currentPlayerId)
+                .single();
+            if (error) throw error;
+            if (data && data.vite !== null) {
+                document.getElementById('lives-count').textContent = data.vite;
+                
+                if (data.vite <= 0) {
+                    handleGameOver(currentPlayerId);
+                }
+            }
+        } catch (e) {
+            console.error("Error refreshing lives:", e);
+        }
+    }
+
+    function showIncomingAttackModal(title, msg) {
+        // Reuse overlay logic
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+        overlay.style.zIndex = '5000'; // Top level
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.animation = 'fadeIn 0.5s';
+        
+        let color = title.includes("RESPINTO") ? "#2ecc71" : (title.includes("ATTACCATO") ? "#e74c3c" : "#f39c12");
+        
+        overlay.innerHTML = `
+            <h1 style="color: ${color}; font-size: 2.5rem; text-align: center; margin-bottom: 20px; text-shadow: 2px 2px 4px black;">${title}</h1>
+            <p style="color: white; font-size: 1.5rem; text-align: center; margin-bottom: 30px; max-width: 80%; line-height: 1.5;">${msg.replace(/\n/g, '<br>')}</p>
+            <button id="close-attack-btn" style="background-color: white; color: #333; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; font-weight: bold;">CHIUDI</button>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        document.getElementById('close-attack-btn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    async function checkBonus() {
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('bonus')
+                .eq('id', currentPlayerId)
+                .single();
+
+            if (error) throw error;
+
+            if (data && data.bonus === 'bonus vinto') {
+                // Found bonus!
+                // Reset it immediately to avoid double trigger
+                await supabaseClient
+                    .from('players')
+                    .update({ bonus: '0' })
+                    .eq('id', currentPlayerId);
+                
+                showBonusModal();
+            }
+        } catch (err) {
+            console.error("Error checking bonus:", err);
+        }
+    }
+
+    function showBonusModal() {
+        // Create modal dynamically if not exists or reuse one
+        // We'll reuse app-confirmation-modal structure but custom content
+        // Or create a new overlay
+        
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+        overlay.style.zIndex = '4000';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.animation = 'fadeIn 0.5s';
+        
+        overlay.innerHTML = `
+            <h1 style="color: #f1c40f; font-size: 2.5rem; text-align: center; margin-bottom: 20px;">🎉 BONUS VINTO! 🎉</h1>
+            <p style="color: white; font-size: 1.2rem; text-align: center; margin-bottom: 30px;">Hai vinto una CARTA AZIONE EXTRA!</p>
+            <button id="draw-bonus-btn" style="background-color: #e67e22; color: white; border: none; padding: 20px 40px; font-size: 1.5rem; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(230, 126, 34, 0.6);">PESCA CARTA</button>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        document.getElementById('draw-bonus-btn').onclick = () => {
+            // Start local roulette for bonus
+            overlay.innerHTML = ''; // Clear content
+            startBonusRoulette(overlay);
+        };
+    }
+
+    function startBonusRoulette(containerOverlay) {
+        // Randomly pick an action index
+        const actionIndex = Math.floor(Math.random() * ACTION_CARDS.length);
+        const actionText = ACTION_CARDS[actionIndex];
+        
+        // Show roulette animation inside the overlay
+        let iterations = 0;
+        const symbols = ["🏐", "🤸", "❣️", "🏆", "🏅"];
+        
+        // Create container for buttons
+        const grid = document.createElement('div');
+        grid.style.display = 'flex';
+        grid.style.flexDirection = 'column';
+        grid.style.gap = '10px';
+        grid.style.alignItems = 'center';
+        grid.style.marginTop = '20px';
+
+        const row1 = document.createElement('div');
+        row1.style.display = 'flex';
+        row1.style.gap = '10px';
+        
+        const row2 = document.createElement('div');
+        row2.style.display = 'flex';
+        row2.style.gap = '10px';
+        
+        for (let i = 0; i < 5; i++) {
+             const btn = document.createElement('button');
+             btn.textContent = symbols[i];
+             btn.style.padding = '20px';
+             btn.style.fontSize = '1.5rem';
+             btn.style.borderRadius = '10px';
+             btn.style.border = 'none';
+             btn.style.backgroundColor = '#f1c40f';
+             btn.style.width = '80px';
+             
+             btn.onclick = () => {
+                 // Reveal
+                 containerOverlay.innerHTML = `
+                    <h2 style="color: white;">Hai pescato:</h2>
+                    <div class="action-card" style="margin: 20px; transform: scale(1.2);">
+                        <span class="action-title">CARTA AZIONE EXTRA</span>
+                        ${actionText}
+                        <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.7;">(Tocca per usare)</div>
+                    </div>
+                    <button id="collect-bonus-btn" style="background-color: #27ae60; color: white; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 5px; cursor: pointer; margin-top: 20px;">RACCOGLI</button>
+                 `;
+                 
+                 document.getElementById('collect-bonus-btn').onclick = () => {
+                     addBonusCardToDeck(actionText);
+                     document.body.removeChild(containerOverlay);
+                 };
+             };
+             
+             if (i < 3) row1.appendChild(btn);
+             else row2.appendChild(btn);
+        }
+        
+        grid.appendChild(row1);
+        grid.appendChild(row2);
+        
+        containerOverlay.innerHTML = '<h2 style="color: white;">Scegli una carta:</h2>';
+        containerOverlay.appendChild(grid);
+    }
+
+    function addBonusCardToDeck(actionText) {
+        const container = document.getElementById('action-card-container');
+        
+        // Create new card element
+        const newCardHTML = `
+            <div class="action-card" onclick="handleActionClick('${actionText}')" style="cursor: pointer; margin-top: 10px; border-color: #e67e22;">
+                <span class="action-title" style="background-color: #e67e22;">CARTA AZIONE EXTRA</span>
+                ${actionText}
+                <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.7;">(Tocca per usare)</div>
+            </div>
+        `;
+        
+        // Append to container
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = newCardHTML;
+        container.appendChild(wrapper.firstElementChild);
+        
+        // Save to DB?
+        // The prompt says "andrà sotto quella che ha".
+        // Current DB schema only has 'action_card' (single text column).
+        // If we want to persist multiple cards, we need to change schema or format.
+        // Assuming for now it's session-based or we append to the text column with a separator?
+        // Let's append with a delimiter if possible, e.g. "ACTION1||ACTION2"
+        // But logic elsewhere might break.
+        // User didn't specify persistence complexity, just "andrà sotto".
+        // I will attempt to append to DB column with a specific delimiter '|||'
+        // and update `handleActionClick` and load logic to handle it?
+        // Or simpler: Just persist visually for now as requested "salvarsi in memoria sua ram" earlier?
+        // Wait, earlier prompt said "salvarsi in memoria sua ram il valore che deve poi trovare" for math.
+        // Here: "si andrà ad aggiungere a quella che aveva già".
+        
+        // Let's try to persist by appending to the string.
+        appendActionToDB(actionText);
+    }
+
+    async function appendActionToDB(newAction) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        try {
+            const { data } = await supabaseClient
+                .from('players')
+                .select('action_card')
+                .eq('id', currentPlayerId)
+                .single();
+                
+            let current = data?.action_card || "";
+            let updated = current ? current + "|||" + newAction : newAction;
+            
+            await supabaseClient
+                .from('players')
+                .update({ action_card: updated })
+                .eq('id', currentPlayerId);
+                
+        } catch (e) {
+            console.error("Error appending action:", e);
+        }
+    }
+
+    async function checkMathQuestion() {
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('domanda_numerica')
+                .eq('id', currentPlayerId)
+                .single();
+
+            if (error) throw error;
+
+            if (data && data.domanda_numerica) {
+                const rawVal = data.domanda_numerica;
+                
+                // Check if it's a JSON string (starts with {)
+                // If it's a simple number answer, we ignore it.
+                if (rawVal.trim().startsWith('{')) {
+                     try {
+                         const questionObj = JSON.parse(rawVal);
+                         showMathModal(questionObj);
+                     } catch (e) {
+                         // Not JSON or parse error, ignore
+                     }
+                }
+            }
+        } catch (err) {
+            console.error("Error checking math question:", err);
+        }
+    }
+
+    function showMathModal(qObj) {
+        // Check if modal is already open
+        if (document.getElementById('math-modal').style.display === 'flex') return;
+
+        const modal = document.getElementById('math-modal');
+        const questionText = document.getElementById('math-question-text');
+        const answersContainer = document.getElementById('math-answers-container');
+        
+        questionText.textContent = `${qObj.n1} + ${qObj.n2} = ?`;
+        
+        // Prepare answers: correct + wrong
+        const allAnswers = [qObj.correct, ...qObj.wrong];
+        
+        // Shuffle answers
+        for (let i = allAnswers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allAnswers[i], allAnswers[j]] = [allAnswers[j], allAnswers[i]];
+        }
+        
+        answersContainer.innerHTML = '';
+        
+        allAnswers.forEach(ans => {
+            const btn = document.createElement('button');
+            btn.textContent = ans;
+            btn.style.padding = '15px';
+            btn.style.fontSize = '1.5rem';
+            btn.style.borderRadius = '10px';
+            btn.style.border = 'none';
+            btn.style.backgroundColor = '#3498db';
+            btn.style.color = 'white';
+            btn.style.cursor = 'pointer';
+            
+            btn.onclick = async () => {
+                await submitMathAnswer(ans);
+                modal.style.display = 'none';
+            };
+            
+            answersContainer.appendChild(btn);
+        });
+        
+        modal.style.display = 'flex';
+    }
+
+    async function submitMathAnswer(answerVal) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        try {
+            // Write JUST the answer value as string
+            const { error } = await supabaseClient
+                .from('players')
+                .update({ domanda_numerica: String(answerVal) })
+                .eq('id', currentPlayerId);
+                
+            if (error) throw error;
+            showToast("Risposta inviata!");
+        } catch (err) {
+            console.error("Error submitting answer:", err);
+            showToast("Errore invio risposta");
+        }
+    }
+
+    // Check for swap requests
+    async function checkSwapRequests() {
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('cambio')
+                .eq('id', currentPlayerId)
+                .single();
+
+            if (error) {
+                console.error('Error checking swap:', error);
+                return;
+            }
+
+            if (data && data.cambio) {
+                const parts = data.cambio.split('|');
+                const actionCode = parts[0].split('-')[0]; // "1", "2", "3", or "4"
+                const targetName = parts[0].split('-')[1];
+
+                if (actionCode === '1' || actionCode === '2' || actionCode === '3' || actionCode === '4') {
+                    // 1 = Full Swap, 2 = Row 1 Swap, 3 = Row 2 Swap, 4 = Row 3 Swap
+                    if (parts.length >= 4) {
+                        const embeddedData = {
+                            name: targetName,
+                            row1: parts[1],
+                            row2: parts[2],
+                            row3: parts[3]
+                        };
+                        const mode = parts.length >= 5 ? parts[4] : 'UNKNOWN';
+                        console.log(`Swap request detected: Action ${actionCode} from ${targetName} (Mode: ${mode})`);
+                        await executeSwap(targetName, embeddedData, actionCode, mode);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Exception checking swap:', err);
+        }
+    }
+
+    async function executeSwap(targetName, embeddedData, actionCode, mode = 'UNKNOWN') {
+        console.log(`[SWAP] Esecuzione azione ${actionCode} con ${targetName} (Mode: ${mode})`);
+        
+        let targetPlayer = embeddedData;
+
+        // Fallback fetch if data missing (should not happen with new logic)
+        if (!targetPlayer) { /* ... same as before ... */ }
+
+        // Parsing logic
+        const parseRow = (str) => {
+            if (!str) return [];
+            if (typeof str === 'string') {
+                return str.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            }
+            return str; 
+        };
+
+        const r1 = parseRow(targetPlayer.row1);
+        const r2 = parseRow(targetPlayer.row2);
+        const r3 = parseRow(targetPlayer.row3);
+        
+        // Construct New Grid
+        // Clone current grid first
+        let newGrid;
+        if (cards.length > 0) {
+            newGrid = JSON.parse(JSON.stringify(cards[0].grid)); // Start with MY grid
+        } else {
+            newGrid = Array(3).fill(null).map(() => Array(9).fill(0));
         }
 
-        // Switch Views
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'block';
+        // Apply changes based on Action Code
+        if (actionCode === '1') {
+            // Full Swap: Replace all rows
+            newGrid = Array(3).fill(null).map(() => Array(9).fill(0)); // Clear grid
+            [r1, r2, r3].forEach((rowNums, rIdx) => {
+                rowNums.forEach(n => {
+                    let c = Math.floor(n / 10);
+                    if (c === 9) c = 8;
+                    if (n === 90) c = 8;
+                    if (n >= 1 && n <= 9) c = 0;
+                    newGrid[rIdx][c] = n;
+                });
+            });
+        } else if (actionCode === '2') {
+            // Row 1 Swap: Replace ONLY row 0
+            // Clear current row 0 in newGrid
+            newGrid[0] = Array(9).fill(0);
+            
+            // Fill row 0 with r1 data
+            r1.forEach(n => {
+                let c = Math.floor(n / 10);
+                if (c === 9) c = 8;
+                if (n === 90) c = 8;
+                if (n >= 1 && n <= 9) c = 0;
+                newGrid[0][c] = n;
+            });
+            // Row 2 and 3 remain as they were in 'newGrid' (my original rows)
+        } else if (actionCode === '3') {
+            // Row 2 Swap: Replace ONLY row 1
+            newGrid[1] = Array(9).fill(0);
+            
+            r2.forEach(n => {
+                let c = Math.floor(n / 10);
+                if (c === 9) c = 8;
+                if (n === 90) c = 8;
+                if (n >= 1 && n <= 9) c = 0;
+                newGrid[1][c] = n;
+            });
+        } else if (actionCode === '4') {
+            // Row 3 Swap: Replace ONLY row 2
+            newGrid[2] = Array(9).fill(0);
+            
+            r3.forEach(n => {
+                let c = Math.floor(n / 10);
+                if (c === 9) c = 8;
+                if (n === 90) c = 8;
+                if (n >= 1 && n <= 9) c = 0;
+                newGrid[2][c] = n;
+            });
+        }
+
+        // Update Local Card
+        if (cards.length > 0) {
+            cards[0].grid = JSON.parse(JSON.stringify(newGrid));
+            
+            // Recalculate matches
+            let r1Matches = 0, r2Matches = 0, r3Matches = 0;
+            // Row 1
+            for (let c = 0; c < 9; c++) {
+                const val = cards[0].grid[0][c];
+                if (val > 0 && extractedNumbers.has(val)) r1Matches++;
+            }
+            // Row 2
+            for (let c = 0; c < 9; c++) {
+                const val = cards[0].grid[1][c];
+                if (val > 0 && extractedNumbers.has(val)) r2Matches++;
+            }
+            // Row 3
+            for (let c = 0; c < 9; c++) {
+                const val = cards[0].grid[2][c];
+                if (val > 0 && extractedNumbers.has(val)) r3Matches++;
+            }
+            cards[0].matches = r1Matches + r2Matches + r3Matches;
+            renderCards();
+        }
+
+        // Prepare strings for DB update
+        // We need to reconstruct the string format for ALL rows, 
+        // because even if we only changed row 1, we update the whole record (or at least row1).
+        // But for consistency, let's regenerate strings from the NEW grid.
         
-        renderCards();
+        const getRowString = (rowIdx) => {
+            return newGrid[rowIdx].filter(n => n > 0).sort((a,b)=>a-b).join(', ');
+        };
+
+        const finalRow1 = getRowString(0);
+        const finalRow2 = getRowString(1);
+        const finalRow3 = getRowString(2);
+
+        // Update DB
+        const { error: updateError } = await supabaseClient
+            .from('players')
+            .update({
+                row1: finalRow1,
+                row2: finalRow2,
+                row3: finalRow3,
+                cambio: '0' 
+            })
+            .eq('id', currentPlayerId);
+
+        if (updateError) {
+            console.error('Error updating my card:', updateError);
+        } else {
+            let msg = "";
+            if (mode === 'PASSIVE') {
+                // Concise messages: Name + Operation
+                if (actionCode === '1') msg = `${targetName}: Scambio Cartella`;
+                if (actionCode === '2') msg = `${targetName}: Scambio 1ª Riga`;
+                if (actionCode === '3') msg = `${targetName}: Scambio 2ª Riga`;
+                if (actionCode === '4') msg = `${targetName}: Scambio 3ª Riga`;
+                showCenterNotification(msg);
+            } else {
+                // Active messages - Show only toast
+                if (actionCode === '1') msg = `Scambio Cartella con ${targetName} avvenuto con successo!`;
+                if (actionCode === '2') msg = `Scambio 1ª Riga con ${targetName} avvenuto con successo!`;
+                if (actionCode === '3') msg = `Scambio 2ª Riga con ${targetName} avvenuto con successo!`;
+                if (actionCode === '4') msg = `Scambio 3ª Riga con ${targetName} avvenuto con successo!`;
+                showToast(msg);
+            }
+        }
+    }
+
+    async function resetSwapColumn() {
+        await supabaseClient.from('players').update({ cambio: '0' }).eq('id', currentPlayerId);
+    }
+
+    // Update player progress in Supabase
+    async function updatePlayerProgress(m1, m2, m3, total) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        try {
+            const { error } = await supabaseClient
+                .from('players')
+                .update({ 
+                    mancanti1linea: m1, 
+                    mancanti2linea: m2, 
+                    mancanti3linea: m3,
+                    mancanti_totale: total 
+                })
+                .eq('id', currentPlayerId);
+                
+            if (error) console.error('Error updating progress:', error);
+        } catch (err) {
+            console.error('Exception updating progress:', err);
+        }
+    }
+
+    // Load existing numbers and check for changes
+    async function loadExistingNumbers() {
+        if (!supabaseClient) return;
+        
+        const { data, error } = await supabaseClient
+            .from('extracted_numbers')
+            .select('number')
+            .order('created_at', { ascending: true });
+            
+        if (error) {
+            console.error('Error loading numbers:', error);
+            return;
+        }
+        
+        if (data) {
+            const newNumbersSet = new Set(data.map(row => row.number));
+            
+            // Check for changes to avoid unnecessary re-renders
+            let hasChanged = false;
+            let latestNumber = null;
+
+            if (newNumbersSet.size !== extractedNumbers.size) {
+                hasChanged = true;
+                // Find the new number(s). Assuming only one added at a time usually.
+                // Or just take the last one from data if it's new.
+                const lastNum = data[data.length - 1].number;
+                if (!extractedNumbers.has(lastNum)) {
+                    latestNumber = lastNum;
+                }
+            } else {
+                for (let num of newNumbersSet) {
+                    if (!extractedNumbers.has(num)) {
+                        hasChanged = true;
+                        latestNumber = num;
+                        break;
+                    }
+                }
+            }
+            
+            if (!hasChanged) return;
+
+            // Update local state
+            extractedNumbers = newNumbersSet;
+            
+            // Recalculate matches
+             cards.forEach(card => {
+                let cardMatches = 0;
+                let r1Matches = 0;
+                let r2Matches = 0;
+                let r3Matches = 0;
+                let hasLatest = false;
+
+                // Row 1
+                for (let c = 0; c < 9; c++) {
+                    const val = card.grid[0][c];
+                    if (val > 0) {
+                        if (extractedNumbers.has(val)) r1Matches++;
+                        if (val === latestNumber) hasLatest = true;
+                    }
+                }
+                // Row 2
+                for (let c = 0; c < 9; c++) {
+                    const val = card.grid[1][c];
+                    if (val > 0) {
+                        if (extractedNumbers.has(val)) r2Matches++;
+                        if (val === latestNumber) hasLatest = true;
+                    }
+                }
+                // Row 3
+                for (let c = 0; c < 9; c++) {
+                    const val = card.grid[2][c];
+                    if (val > 0) {
+                        if (extractedNumbers.has(val)) r3Matches++;
+                        if (val === latestNumber) hasLatest = true;
+                    }
+                }
+                
+                cardMatches = r1Matches + r2Matches + r3Matches;
+                card.matches = cardMatches;
+                
+                // Store flash state on card object temporarily
+                if (latestNumber !== null) {
+                    card.flashState = hasLatest ? 'green' : 'red';
+                    card.flashNumber = latestNumber;
+                }
+
+                if (currentPlayerId) {
+                    updatePlayerProgress(5 - r1Matches, 5 - r2Matches, 5 - r3Matches, 15 - cardMatches);
+                }
+            });
+            
+            updateHistory();
+            renderCards();
+            
+            // Clear flash state after render
+            setTimeout(() => {
+                cards.forEach(c => {
+                    delete c.flashState;
+                    delete c.flashNumber;
+                });
+                // Re-render to remove flash overlay after animation
+                renderCards(); 
+            }, 1000);
+        }
+    }
+
+    let currentActionIndex = 0;
+    let actionTimer = null;
+
+    // Action Cards Logic
+    const ACTION_CARDS = [
+        "CAMBIA CARTELLA CON CHI VUOI",
+        "CAMBIA LA PRIMA RIGA CON CHI VUOI",
+        "CAMBIA LA SECONDA RIGA CON CHI VUOI",
+        "CAMBIA LA TERZA RIGA CON CHI VUOI",
+        "SCEGLI UN NUMERO CHE DEVE USCIRE",
+        
+
+        
+    ];
+
+    function startActionTimer() {
+        if (actionTimer) clearInterval(actionTimer);
+        actionTimer = setInterval(() => {
+            currentActionIndex = (currentActionIndex + 1) % ACTION_CARDS.length;
+        }, 50);
+    }
+
+    function stopActionTimer() {
+        if (actionTimer) {
+            clearInterval(actionTimer);
+            actionTimer = null;
+        }
+        return currentActionIndex;
+    }
+
+    // Setup Logic
+    async function startRoulette() {
+        const nameInput = document.getElementById('player-name');
+        const passwordInput = document.getElementById('player-password');
+        const name = nameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!name || !password) {
+            showToast("Inserisci nome e password!");
+            return;
+        }
+        
+        // Save to Supabase
+        if (supabaseClient) {
+            try {
+                // Check if user exists
+                const { data: existing, error: checkError } = await supabaseClient
+                    .from('players')
+                    .select('id, password')
+                    .ilike('name', name);
+
+                if (checkError) {
+                    console.error('Error checking player:', checkError);
+                    showToast("Errore di connessione.");
+                    return;
+                } else if (existing && existing.length > 0) {
+                    // User exists, check password
+                    // Assuming existing[0] is the user. If duplicates exist, this picks the first.
+                    if (existing[0].password === password) {
+                         // Login successful - Resume session
+                         currentPlayerId = existing[0].id;
+                         showToast(`Bentornato ${name}!`);
+                         
+                         // We might need to load their state (cards, etc)
+                         // But for now, let's just proceed to game screen if they have one?
+                         // Or just let them play. The current logic assumes new game setup.
+                         // If we want to resume, we'd need to fetch their card.
+                         // For simplicity based on prompt: "servirà per accedere".
+                         
+                         // If they are logging in, we should check if they already have a card.
+                        // If they do, skip roulette.
+                        const { data: playerData } = await supabaseClient
+                           .from('players')
+                           .select('*')
+                           .eq('id', currentPlayerId)
+                           .single();
+                           
+                        if (playerData && playerData.row1) {
+                             // Restore state
+                             document.getElementById('setup-screen').style.display = 'none';
+                             document.getElementById('game-screen').style.display = 'block';
+                             document.getElementById('player-header-name').textContent = name;
+                             
+                             // Restore lives
+                             if (playerData.vite !== undefined) {
+                                 document.getElementById('lives-count').textContent = playerData.vite;
+                             }
+
+                             // Reconstruct card from DB
+                            const parseRow = (str) => {
+                                if (!str) return [];
+                                return str.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                            };
+
+                            const r1 = parseRow(playerData.row1);
+                            const r2 = parseRow(playerData.row2);
+                            const r3 = parseRow(playerData.row3);
+                            
+                            let grid = Array(3).fill(null).map(() => Array(9).fill(0));
+                            
+                            // Helper to place numbers in correct columns (0-9, 10-19, etc)
+                            const placeRow = (rowArr, rowIdx) => {
+                                rowArr.forEach(n => {
+                                    let c = Math.floor(n / 10);
+                                    if (c === 9) c = 8;
+                                    if (n === 90) c = 8;
+                                    if (n >= 1 && n <= 9) c = 0;
+                                    grid[rowIdx][c] = n;
+                                });
+                            };
+                            
+                            placeRow(r1, 0);
+                            placeRow(r2, 1);
+                            placeRow(r3, 2);
+                            
+                            const card = {
+                                id: playerData.id, // Or separate card ID if we had one
+                                grid: grid,
+                                matches: 0
+                            };
+                            
+                            cards = [card];
+                            
+                            // Restore Action Card
+                            if (playerData.action_card) {
+                                let actionText = playerData.action_card;
+                                let isUsed = false;
+                                if (actionText.includes('|USED')) {
+                                    actionText = actionText.split('|')[0];
+                                    isUsed = true;
+                                }
+                                
+                                const container = document.getElementById('action-card-container');
+                                container.innerHTML = `
+                                    <div class="action-card" onclick="handleActionClick('${actionText}')" style="cursor: pointer;">
+                                        <span class="action-title">CARTA AZIONE${isUsed ? ' (USATA)' : ''}</span>
+                                        ${actionText}
+                                        <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.7;">${isUsed ? '(Già utilizzata)' : '(Tocca per usare)'}</div>
+                                    </div>
+                                `;
+                                
+                                if (isUsed) {
+                                    const cardEl = container.querySelector('.action-card');
+                                    cardEl.style.backgroundColor = '#c0392b';
+                                    cardEl.style.borderColor = '#96281b';
+                                    cardEl.style.cursor = 'not-allowed';
+                                    cardEl.onclick = null;
+                                }
+                            }
+                            
+                            renderCards();
+                            showToast(`Bentornato ${name}! Cartella caricata.`);
+                            startPolling();
+                            return; // Skip the rest of setup
+                        }
+                   } else {
+                       showToast("Password errata! Utente già registrato.");
+                       return;
+                   }
+               } else {
+                    // New User - Register
+                    // CHECK ACCESS CONTROL
+                    const { data: accessData, error: accessError } = await supabaseClient
+                        .from('numero_accesso')
+                        .select('numero')
+                        .limit(1);
+                        
+                    if (!accessError && accessData && accessData.length > 0) {
+                        if (accessData[0].numero === 'off') {
+                            showCenterNotification("Non puoi fare l'accesso perchè è in corso una partita.");
+                            return;
+                        }
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from('players')
+                        .insert([{ name: name, password: password, vite: 2 }])
+                        .select();
+                    
+                    if (error) {
+                        console.error('Supabase error:', error);
+                        showToast("Errore durante la registrazione.");
+                        return;
+                    } else if (data && data.length > 0) {
+                        currentPlayerId = data[0].id;
+                        document.getElementById('lives-count').textContent = '2'; // Update UI
+                    }
+                }
+           } catch (err) {
+               console.error('Supabase exception:', err);
+               showToast("Errore di sistema.");
+               return;
+           }
+       }
+
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('roulette-screen').style.display = 'block';
+        document.getElementById('roulette-player-name').textContent = name;
+        document.getElementById('player-header-name').textContent = name;
+
+        // Setup Action Draw
+        document.getElementById('roulette-card-container').style.display = 'none';
+        document.getElementById('action-draw-container').style.display = 'block';
+        startActionTimer();
+
+        const drawBtn = document.getElementById('draw-action-btn');
+        const newBtn = drawBtn.cloneNode(true);
+        drawBtn.parentNode.replaceChild(newBtn, drawBtn);
+
+        newBtn.addEventListener('click', () => {
+            const idx = stopActionTimer();
+            document.getElementById('action-draw-container').style.display = 'none';
+            document.getElementById('roulette-card-container').style.display = 'block';
+            startCardRoulette(name, idx);
+        });
+    }
+
+    function startCardRoulette(name, actionIndex) {
+        const rouletteContainer = document.getElementById('roulette-card-container');
+        let iterations = 0;
+        const maxIterations = 20; // 2 seconds at 100ms
+        const intervalTime = 100;
+
+        // Visual trick: All cards look like "PESCA CARTA AZIONE" buttons
+        // but the user thinks they are picking a random card.
+        // Actually, the result is predetermined by actionIndex.
+        
+        const spinInterval = setInterval(() => {
+            rouletteContainer.innerHTML = '';
+            
+            // Create container for 3 top and 2 bottom layout
+            const grid = document.createElement('div');
+            grid.style.display = 'flex';
+            grid.style.flexDirection = 'column';
+            grid.style.gap = '10px';
+            grid.style.alignItems = 'center';
+
+            // Top row (3 items)
+            const row1 = document.createElement('div');
+            row1.style.display = 'flex';
+            row1.style.gap = '10px';
+            row1.style.justifyContent = 'center';
+
+            // Bottom row (2 items)
+            const row2 = document.createElement('div');
+            row2.style.display = 'flex';
+            row2.style.gap = '10px';
+            row2.style.justifyContent = 'center';
+            
+            const symbols = ["🏐", "🤸", "❣️", "🏆", "🏅"];
+            
+            for (let i = 0; i < 5; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = symbols[i];
+                btn.className = 'btn';
+                btn.style.padding = '20px';
+                btn.style.fontSize = '1.5rem';
+                btn.style.backgroundColor = '#f1c40f'; // Gold
+                btn.style.color = '#2c3e50';
+                btn.style.width = '80px'; // Fixed width for better alignment
+                
+                // Clicking any button stops the roulette and gives the result
+                btn.onclick = () => {
+                    clearInterval(spinInterval);
+                    
+                    // Show the result
+                    rouletteContainer.innerHTML = '';
+                    
+                    const resultDiv = document.createElement('div');
+                    resultDiv.style.textAlign = 'center';
+                    resultDiv.style.padding = '20px';
+                    resultDiv.style.animation = 'fadeIn 0.5s';
+                    
+                    const actionText = ACTION_CARDS[actionIndex];
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Hai pescato:</h3>
+                        <div class="action-card" style="margin: 20px auto; transform: scale(1.2); display: inline-block;">
+                            <span class="action-title">CARTA AZIONE</span>
+                            ${actionText}
+                        </div>
+                        <br><br>
+                        <button id="continue-btn" class="btn" style="background-color: #27ae60; margin-top: 20px;">CONTINUA</button>
+                    `;
+                    
+                    rouletteContainer.appendChild(resultDiv);
+                    
+                    document.getElementById('continue-btn').onclick = () => {
+                        showCardSelection(name, actionIndex);
+                    };
+                };
+                
+                if (i < 3) {
+                    row1.appendChild(btn);
+                } else {
+                    row2.appendChild(btn);
+                }
+            }
+            grid.appendChild(row1);
+            grid.appendChild(row2);
+            rouletteContainer.appendChild(grid);
+
+            iterations++;
+
+            // Auto-pick if user doesn't click after timeout?
+            // User requested: "lui preme su una qualsdiasi carta... e quindi bloccherà il tempo"
+            // So we don't auto-stop, we wait for click.
+            // But we need to stop the visual "spinning" effect or just show static choices?
+            // The prompt says "devono uscire le 5 carte... lui preme... bloccherà il tempo".
+            // It implies the cards might be shuffling or appearing?
+            // "startCardRoulette" implies animation.
+            // Let's make them blink or just appear.
+            
+            if (iterations === 1) {
+                 clearInterval(spinInterval); // Stop loop immediately, just show choices
+                 // Wait, user said "devono uscire le 5 carte... che sono lo stesso bottone".
+                 // So we just show 5 buttons.
+            }
+            
+        }, intervalTime);
+    }
+
+    function showCardSelection(name, actionIndex) {
+        document.getElementById('roulette-screen').style.display = 'none';
+        const selectionScreen = document.getElementById('card-selection-screen');
+        selectionScreen.style.display = 'block';
+        
+        const container = document.getElementById('selection-container');
+        container.innerHTML = '<p>Generazione cartelle...</p>';
+        
+        // Small delay to allow UI to update before heavy generation
+        setTimeout(() => {
+            container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            
+            for(let i=0; i<100; i++) {
+                // Generate a random ID for the card
+                const cardId = Math.floor(Math.random() * 9000) + 1000;
+                const card = generateCard(cardId);
+                
+                // Create wrapper for interaction
+                const wrapper = document.createElement('div');
+                wrapper.style.cursor = 'pointer';
+                wrapper.style.border = '2px solid transparent';
+                wrapper.style.borderRadius = '10px';
+                wrapper.style.transition = 'transform 0.2s, border-color 0.2s';
+                
+                wrapper.onmouseover = () => {
+                    wrapper.style.transform = 'scale(1.02)';
+                    wrapper.style.borderColor = '#3498db';
+                };
+                wrapper.onmouseout = () => {
+                    wrapper.style.transform = 'scale(1)';
+                    wrapper.style.borderColor = 'transparent';
+                };
+                
+                wrapper.onclick = () => {
+                    showAppConfirmation(`Vuoi scegliere la Cartella #${cardId}?`, () => {
+                        finishRoulette(name, card, actionIndex);
+                    });
+                };
+                
+                const cardEl = createCardElement(card);
+                // Disable any internal interactivity of the card element if any
+                cardEl.style.pointerEvents = 'none'; 
+                
+                wrapper.appendChild(cardEl);
+                fragment.appendChild(wrapper);
+            }
+            container.appendChild(fragment);
+        }, 100);
+    }
+
+    function finishRoulette(playerName, finalCard, actionIndex) {
+        // Hide selection screen
+        document.getElementById('card-selection-screen').style.display = 'none';
+        
+        setTimeout(async () => {
+            cards = [finalCard];
+            extractedNumbers = new Set();
+            document.getElementById('extracted-list').textContent = '';
+            
+            const action = ACTION_CARDS[actionIndex];
+            const container = document.getElementById('action-card-container');
+            container.innerHTML = `
+                <div class="action-card" onclick="handleActionClick('${action}')" style="cursor: pointer;">
+                    <span class="action-title">CARTA AZIONE</span>
+                    ${action}
+                    <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.7;">(Tocca per usare)</div>
+                </div>
+            `;
+            
+            if (supabaseClient && currentPlayerId) {
+                try {
+                    const row1 = finalCard.grid[0].filter(n => n > 0).join(', ');
+                    const row2 = finalCard.grid[1].filter(n => n > 0).join(', ');
+                    const row3 = finalCard.grid[2].filter(n => n > 0).join(', ');
+                    
+                    const { error } = await supabaseClient
+                        .from('players')
+                        .update({ 
+                            row1: row1, 
+                            row2: row2, 
+                            row3: row3,
+                            action_card: action,
+                            mancanti1linea: 5,
+                            mancanti2linea: 5,
+                            mancanti3linea: 5,
+                            mancanti_totale: 15
+                        })
+                        .eq('id', currentPlayerId);
+                        
+                    if (error) console.error('Supabase update error:', error);
+                } catch (err) {
+                    console.error('Supabase update exception:', err);
+                }
+            }
+            
+            document.getElementById('roulette-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            
+            renderCards();
+            showToast(`Buona fortuna ${playerName}!`);
+            
+            startPolling();
+        }, 1000);
+    }
+
+    // Action Card Click Handler
+    async function handleActionClick(actionText, cardElement) {
+        // Check if card is already used (red style or disabled class)
+        // Since we regenerate the HTML on load, we need to check state from DB or just visually if persisted locally.
+        // For now, let's assume if it's clicked, we check if it was already used?
+        // Actually, the user wants it to turn red and lock AFTER use.
+        
+        // We need to pass the element reference or find it.
+        // Since the onclick is inline string, 'this' context is tricky unless passed.
+        // Let's modify how the card is generated first to include 'this' or ID.
+        
+        // But wait, the function signature in HTML is handleActionClick('TEXT').
+        // We can't easily get the element unless we pass 'this' in the HTML generation.
+        
+        if (actionText === "CAMBIA CARTELLA CON CHI VUOI") {
+            // Show player selection modal specifically for swap
+            showSwapPlayerModal('full', actionText);
+        } else if (actionText === "CAMBIA LA PRIMA RIGA CON CHI VUOI") {
+             showSwapPlayerModal('row1', actionText);
+        } else if (actionText === "CAMBIA LA SECONDA RIGA CON CHI VUOI") {
+             showSwapPlayerModal('row2', actionText);
+        } else if (actionText === "CAMBIA LA TERZA RIGA CON CHI VUOI") {
+             showSwapPlayerModal('row3', actionText);
+        } else if (actionText === "SCEGLI UN NUMERO CHE DEVE USCIRE") {
+             showPickNumberModal(actionText);
+        } else {
+            showToast("Questa azione non è ancora disponibile.");
+        }
+    }
+
+    // New helper to lock the card visually and in DB
+    async function lockActionCard(actionText) {
+        // Visual update
+        const container = document.getElementById('action-card-container');
+        // Find the card with this text
+        const cards = container.getElementsByClassName('action-card');
+        for (let card of cards) {
+            if (card.textContent.includes(actionText)) {
+                card.style.backgroundColor = '#c0392b'; // Red
+                card.style.borderColor = '#96281b';
+                card.style.cursor = 'not-allowed';
+                card.onclick = null; // Remove handler
+                // Update text to indicate used
+                const title = card.querySelector('.action-title');
+                if (title) title.textContent = "CARTA AZIONE (USATA)";
+                
+                // Update hint text
+                const hint = card.querySelector('div[style*="font-size: 0.8rem"]');
+                if (hint) hint.textContent = "(Già utilizzata)";
+            }
+        }
+        
+        // Persist 'used' state to DB if needed?
+        // The prompt says "si trasforma a rossa e si blocca".
+        // If we reload the page, should it stay red?
+        // Assuming yes, we need to store 'action_used' boolean in DB.
+        
+        if (supabaseClient && currentPlayerId) {
+              try {
+                 // We reuse 'action_card' column to store status since 'action_used' column doesn't exist
+                 const { error } = await supabaseClient
+                     .from('players')
+                     .update({ action_card: actionText + '|USED' })
+                     .eq('id', currentPlayerId);
+                 if (error) console.error("Error locking card:", error);
+             } catch (e) {
+                 console.error(e);
+             }
+         }
+    }
+
+    async function showSwapPlayerModal(swapType = 'full', actionText = '') {
+        // Reuse players modal structure but with click-to-select logic
+        document.getElementById('players-modal').style.display = 'flex';
+        const list = document.getElementById('players-list');
+        list.innerHTML = '<p>Caricamento giocatori...</p>';
+        
+        if (!supabaseClient) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('*')
+                .neq('id', currentPlayerId) // Exclude myself
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<p>Nessun altro giocatore disponibile.</p>';
+            } else {
+                const title = document.createElement('h4');
+                let titleText = "Scegli con chi scambiare la cartella:";
+                if (swapType === 'row1') titleText = "Scegli con chi scambiare la PRIMA riga:";
+                if (swapType === 'row2') titleText = "Scegli con chi scambiare la SECONDA riga:";
+                if (swapType === 'row3') titleText = "Scegli con chi scambiare la TERZA riga:";
+                
+                title.textContent = titleText;
+                title.style.margin = "0 0 10px 0";
+                list.appendChild(title);
+
+                data.forEach(player => {
+                    const btn = document.createElement('button');
+                    btn.textContent = player.name;
+                    btn.style.display = 'block';
+                    btn.style.width = '100%';
+                    btn.style.marginBottom = '8px';
+                    btn.style.padding = '10px';
+                    btn.style.backgroundColor = '#3498db';
+                    btn.onclick = () => initiateSwap(player, swapType, actionText);
+                    list.appendChild(btn);
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = '<p>Errore caricamento.</p>';
+        }
+    }
+
+    async function initiateSwap(targetPlayer, swapType = 'full', actionText = '') {
+        // swapType: 'full' | 'row1' | 'row2' | 'row3'
+        // 'full' -> uses prefix "1-"
+        // 'row1' -> uses prefix "2-"
+        // 'row2' -> uses prefix "3-"
+        // 'row3' -> uses prefix "4-"
+        
+        let prefix = '1';
+        if (swapType === 'row1') prefix = '2';
+        if (swapType === 'row2') prefix = '3';
+        if (swapType === 'row3') prefix = '4';
+        
+        // My name
+        const myName = document.getElementById('player-header-name').textContent;
+        
+        // Get my current rows
+        const formatRow = (rowIdx) => {
+            return cards[0].grid[rowIdx].filter(n => n > 0).join(', ');
+        };
+        
+        const myR1 = formatRow(0);
+        const myR2 = formatRow(1);
+        const myR3 = formatRow(2);
+
+        showToast(`Invio richiesta a ${targetPlayer.name}...`);
+        closePlayersModal();
+
+        try {
+            // Update TARGET: "prefix-MYNAME|R1|R2|R3|PASSIVE"
+            const payloadForTarget = `${prefix}-${myName}|${myR1}|${myR2}|${myR3}|PASSIVE`;
+            console.log(`[SWAP] Sending payload to target (${swapType}):`, payloadForTarget);
+
+            const { error: err1 } = await supabaseClient
+                .from('players')
+                .update({ cambio: payloadForTarget })
+                .eq('id', targetPlayer.id);
+
+            if (err1) throw err1;
+
+            // Update ME: "prefix-TARGETNAME|TARGET_R1|TARGET_R2|TARGET_R3|ACTIVE"
+            const payloadForMe = `${prefix}-${targetPlayer.name}|${targetPlayer.row1}|${targetPlayer.row2}|${targetPlayer.row3}|ACTIVE`;
+            console.log(`[SWAP] Sending payload to me (${swapType}):`, payloadForMe);
+
+            const { error: err2 } = await supabaseClient
+                .from('players')
+                .update({ cambio: payloadForMe })
+                .eq('id', currentPlayerId);
+
+            if (err2) throw err2;
+
+            showToast("Scambio avviato! Attendi...");
+            
+            // Lock the action card after successful initiation
+            if (actionText) lockActionCard(actionText);
+
+        } catch (err) {
+            console.error('Swap error:', err);
+            showToast("Errore nell'avvio dello scambio.");
+        }
+    }
+
+    // Attack Logic
+    async function showAttackModal() {
+        document.getElementById('attack-modal').style.display = 'flex';
+        const list = document.getElementById('attack-list');
+        list.innerHTML = '<p>Caricamento giocatori...</p>';
+        
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            // Get all players except me
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('*')
+                .neq('id', currentPlayerId)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<p>Nessun avversario disponibile.</p>';
+            } else {
+                data.forEach(player => {
+                    const btn = document.createElement('button');
+                    btn.textContent = player.name;
+                    btn.style.display = 'block';
+                    btn.style.width = '100%';
+                    btn.style.marginBottom = '8px';
+                    btn.style.padding = '10px';
+                    
+                    if (attackedPlayers.has(player.id)) {
+                        btn.textContent = `${player.name} (Già attaccato)`;
+                        btn.style.backgroundColor = '#95a5a6';
+                        btn.style.cursor = 'not-allowed';
+                        btn.disabled = true;
+                    } else {
+                        btn.style.backgroundColor = '#e74c3c'; // Red for attack
+                        btn.onclick = () => executeAttack(player);
+                    }
+                    
+                    list.appendChild(btn);
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = '<p>Errore caricamento.</p>';
+        }
+    }
+
+    function closeAttackModal() {
+        document.getElementById('attack-modal').style.display = 'none';
+    }
+
+    // Exchange Lives Logic
+    function showExchangeOptionsModal() {
+        document.getElementById('exchange-options-modal').style.display = 'flex';
+    }
+
+    function closeExchangeOptionsModal() {
+        document.getElementById('exchange-options-modal').style.display = 'none';
+    }
+
+    async function showMissingNumbersPeekModal() {
+        closeExchangeOptionsModal();
+        document.getElementById('peek-missing-modal').style.display = 'flex';
+        const list = document.getElementById('peek-missing-list');
+        list.innerHTML = '<p>Caricamento giocatori...</p>';
+        
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('*')
+                .neq('id', currentPlayerId)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<p>Nessun avversario disponibile.</p>';
+            } else {
+                data.forEach(player => {
+                    const btn = document.createElement('button');
+                    btn.textContent = player.name;
+                    btn.style.display = 'block';
+                    btn.style.width = '100%';
+                    btn.style.marginBottom = '8px';
+                    btn.style.padding = '10px';
+                    btn.style.backgroundColor = '#f1c40f'; 
+                    btn.style.color = '#333';
+                    btn.onclick = () => executePeekMissing(player);
+                    list.appendChild(btn);
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = '<p>Errore caricamento.</p>';
+        }
+    }
+
+    function closePeekMissingModal() {
+        document.getElementById('peek-missing-modal').style.display = 'none';
+    }
+
+    async function executePeekMissing(targetPlayer) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        try {
+             const { data: myData, error: myError } = await supabaseClient
+                .from('players')
+                .select('vite')
+                .eq('id', currentPlayerId)
+                .single();
+                
+             if (myError) throw myError;
+             
+             const myLives = myData.vite;
+             if (myLives <= 1) {
+                 showToast("Hai solo 1 vita! Non puoi usarla per spiare.");
+                 return;
+             }
+             
+             // Confirm action
+             showAppConfirmation(`Vuoi spendere 1 vita per vedere i numeri mancanti di ${targetPlayer.name}?`, async () => {
+                 closePeekMissingModal();
+                 
+                 // Pay the cost
+                 await decreaseLives(currentPlayerId);
+                 
+                 // Fetch target missing count fresh
+                 const { data: targetData, error: targetError } = await supabaseClient
+                    .from('players')
+                    .select('mancanti_totale')
+                    .eq('id', targetPlayer.id)
+                    .single();
+                    
+                 if (targetError) {
+                     showToast("Errore recupero dati avversario.");
+                     return;
+                 }
+                 
+                 const missingCount = targetData.mancanti_totale !== null ? targetData.mancanti_totale : 15;
+                 
+                 // Show Result
+                 const overlay = document.createElement('div');
+                 overlay.style.position = 'fixed';
+                 overlay.style.top = '0';
+                 overlay.style.left = '0';
+                 overlay.style.width = '100%';
+                 overlay.style.height = '100%';
+                 overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+                 overlay.style.zIndex = '5000';
+                 overlay.style.display = 'flex';
+                 overlay.style.flexDirection = 'column';
+                 overlay.style.alignItems = 'center';
+                 overlay.style.justifyContent = 'center';
+                 overlay.style.animation = 'fadeIn 0.5s';
+                 
+                 overlay.innerHTML = `
+                    <h1 style="color: #f1c40f; font-size: 2rem; margin-bottom: 20px;">INFO SPIATE</h1>
+                    <p style="color: white; font-size: 1.5rem; margin-bottom: 10px;">${targetPlayer.name}</p>
+                    <p style="color: white; font-size: 1.2rem; margin-bottom: 5px;">Numeri Mancanti:</p>
+                    <p style="color: #3498db; font-size: 3rem; font-weight: bold; margin-bottom: 30px;">${missingCount}</p>
+                    <button id="close-peek-missing-btn" style="background-color: white; color: #333; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer;">CHIUDI</button>
+                 `;
+                 
+                 document.body.appendChild(overlay);
+                 document.getElementById('close-peek-missing-btn').onclick = () => {
+                     document.body.removeChild(overlay);
+                 };
+             });
+             
+        } catch (e) {
+            console.error("Peek missing error:", e);
+            showToast("Errore durante l'operazione");
+        }
+    }
+
+    async function showLivesPeekModal() {
+        closeExchangeOptionsModal();
+        document.getElementById('peek-lives-modal').style.display = 'flex';
+        const list = document.getElementById('peek-lives-list');
+        list.innerHTML = '<p>Caricamento giocatori...</p>';
+        
+        if (!supabaseClient || !currentPlayerId) return;
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('*')
+                .neq('id', currentPlayerId)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<p>Nessun avversario disponibile.</p>';
+            } else {
+                data.forEach(player => {
+                    const btn = document.createElement('button');
+                    btn.textContent = player.name;
+                    btn.style.display = 'block';
+                    btn.style.width = '100%';
+                    btn.style.marginBottom = '8px';
+                    btn.style.padding = '10px';
+                    btn.style.backgroundColor = '#e67e22'; 
+                    btn.onclick = () => executePeekLives(player);
+                    list.appendChild(btn);
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = '<p>Errore caricamento.</p>';
+        }
+    }
+
+    function closePeekLivesModal() {
+        document.getElementById('peek-lives-modal').style.display = 'none';
+    }
+
+    async function executePeekLives(targetPlayer) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        // Check if I have enough lives (> 1, because if I have 1 and pay 1 I die)
+        // Wait, rule says "utilizzare 1 vita". If I have 1, I go to 0 and die?
+        // Prompt implies cost. Usually you can't pay if you die, but "se arriva a 0 perde".
+        // Let's check current lives first.
+        
+        try {
+             const { data: myData, error: myError } = await supabaseClient
+                .from('players')
+                .select('vite')
+                .eq('id', currentPlayerId)
+                .single();
+                
+             if (myError) throw myError;
+             
+             const myLives = myData.vite;
+             if (myLives <= 1) {
+                 showToast("Hai solo 1 vita! Non puoi usarla per spiare.");
+                 return;
+             }
+             
+             // Confirm action
+             showAppConfirmation(`Vuoi spendere 1 vita per vedere le vite di ${targetPlayer.name}?`, async () => {
+                 closePeekLivesModal();
+                 
+                 // Pay the cost
+                 await decreaseLives(currentPlayerId);
+                 
+                 // Fetch target lives fresh
+                 const { data: targetData, error: targetError } = await supabaseClient
+                    .from('players')
+                    .select('vite')
+                    .eq('id', targetPlayer.id)
+                    .single();
+                    
+                 if (targetError) {
+                     showToast("Errore recupero dati avversario.");
+                     return;
+                 }
+                 
+                 const targetLives = targetData.vite !== null ? targetData.vite : 0;
+                 
+                 // Show Result
+                 // We use a custom overlay or reuse showIncomingAttackModal style for visibility
+                 const overlay = document.createElement('div');
+                 overlay.style.position = 'fixed';
+                 overlay.style.top = '0';
+                 overlay.style.left = '0';
+                 overlay.style.width = '100%';
+                 overlay.style.height = '100%';
+                 overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+                 overlay.style.zIndex = '5000';
+                 overlay.style.display = 'flex';
+                 overlay.style.flexDirection = 'column';
+                 overlay.style.alignItems = 'center';
+                 overlay.style.justifyContent = 'center';
+                 overlay.style.animation = 'fadeIn 0.5s';
+                 
+                 overlay.innerHTML = `
+                    <h1 style="color: #f39c12; font-size: 2rem; margin-bottom: 20px;">INFO SPIATE</h1>
+                    <p style="color: white; font-size: 1.5rem; margin-bottom: 10px;">${targetPlayer.name}</p>
+                    <p style="color: #e74c3c; font-size: 3rem; font-weight: bold; margin-bottom: 30px;">❤️ ${targetLives}</p>
+                    <button id="close-peek-btn" style="background-color: white; color: #333; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer;">CHIUDI</button>
+                 `;
+                 
+                 document.body.appendChild(overlay);
+                 document.getElementById('close-peek-btn').onclick = () => {
+                     document.body.removeChild(overlay);
+                 };
+             });
+             
+        } catch (e) {
+            console.error("Peek error:", e);
+            showToast("Errore durante l'operazione");
+        }
+    }
+
+    async function executeAttack(targetPlayer) {
+        if (!supabaseClient || !currentPlayerId) return;
+        
+        const myName = document.getElementById('player-header-name').textContent;
+        
+        showToast(`Attacco ${targetPlayer.name} in corso...`);
+        closeAttackModal();
+        
+        try {
+            // 1. Get MY current 'mancanti_totale'
+            const { data: myData, error: myError } = await supabaseClient
+                .from('players')
+                .select('mancanti_totale')
+                .eq('id', currentPlayerId)
+                .single();
+                
+            if (myError) throw myError;
+            
+            // 2. Write attack record
+            // Update the TARGET's 'attacco' column with MY name + result + separator
+            // "scriverà il nome e poi se ha vinto o perso, possiamo usare ##### per staccare"
+            
+            // Need to determine win/loss BEFORE writing to DB to include it in the string.
+            // My missing vs Target missing
+            const myMissing = myData.mancanti_totale;
+            const targetMissing = targetPlayer.mancanti_totale;
+            
+            let resultMsg = "";
+            let dbResultStatus = ""; // "VINTO" or "PERSO" or "PAREGGIO"
+            
+            if (myMissing < targetMissing) {
+                resultMsg = `HAI VINTO L'ATTACCO!\nPerché a te mancano ${myMissing} numeri e a ${targetPlayer.name} ne mancano ${targetMissing}.`;
+                dbResultStatus = "VINTO";
+            } else if (myMissing > targetMissing) {
+                resultMsg = `HAI PERSO L'ATTACCO!\nPerché a te mancano ${myMissing} numeri e a ${targetPlayer.name} ne mancano ${targetMissing}.`;
+                dbResultStatus = "PERSO";
+            } else {
+                 resultMsg = `PAREGGIO!\nPerché a entrambi mancano ${myMissing} numeri.`;
+                 dbResultStatus = "PAREGGIO";
+            }
+
+            // 4. Update Lives Logic (moved BEFORE notification to avoid race condition)
+            // Add to attacked set locally ONLY if not a draw
+            if (dbResultStatus !== "PAREGGIO") {
+                attackedPlayers.add(targetPlayer.id);
+            }
+
+            // Attacker side logic (Me):
+            if (dbResultStatus === "PERSO") {
+                // I lost the attack, so I lose a life
+                await decreaseLives(currentPlayerId);
+            }
+            
+            // Target side logic:
+            if (dbResultStatus === "VINTO") {
+                // Target lost -> Target loses life
+                await decreaseLives(targetPlayer.id);
+                // I (Attacker) won, so I gain a life
+                await increaseLives(currentPlayerId);
+            }
+
+            // Format: "NOME#####ID#####RISULTATO"
+            const attackPayload = `${myName}#####${currentPlayerId}#####${dbResultStatus}`;
+
+            const { error: attackError } = await supabaseClient
+                .from('players')
+                .update({ attacco: attackPayload })
+                .eq('id', targetPlayer.id);
+                
+            if (attackError) throw attackError;
+
+            // Show result
+            // Using App Confirmation modal structure just for alert style or custom
+            showAppConfirmation(resultMsg, () => {
+                // Callback does nothing, just close
+            });
+            // Change button text to OK
+            document.getElementById('app-confirm-btn').textContent = "OK";
+            document.getElementById('app-confirm-btn').nextElementSibling.style.display = 'none'; // Hide cancel
+
+        } catch (err) {
+            console.error("Attack error:", err);
+            showToast("Errore durante l'attacco");
+        }
+    }
+
+    async function decreaseLives(userId) {
+        if (!supabaseClient) return;
+        
+        try {
+            // Get current lives
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('vite')
+                .eq('id', userId)
+                .single();
+                
+            if (error) throw error;
+            
+            let currentLives = data.vite !== null ? data.vite : 2;
+            if (currentLives > 0) {
+                currentLives--;
+                
+                // Update DB
+                await supabaseClient
+                    .from('players')
+                    .update({ vite: currentLives })
+                    .eq('id', userId);
+                    
+                // Update UI if it's me
+                if (userId === currentPlayerId) {
+                    document.getElementById('lives-count').textContent = currentLives;
+                    
+                    if (currentLives === 0) {
+                        // Game Over Logic
+                        handleGameOver(userId);
+                    }
+                }
+            } else if (currentLives === 0) {
+                 // Already 0, double check if game over handled
+                 if (userId === currentPlayerId) {
+                     handleGameOver(userId);
+                 }
+            }
+        } catch (err) {
+            console.error("Error decreasing lives:", err);
+        }
+    }
+
+    async function increaseLives(userId) {
+        if (!supabaseClient) return;
+        
+        try {
+            // Get current lives
+            const { data, error } = await supabaseClient
+                .from('players')
+                .select('vite')
+                .eq('id', userId)
+                .single();
+                
+            if (error) throw error;
+            
+            let currentLives = data.vite !== null ? data.vite : 2;
+            currentLives++;
+            
+            // Update DB
+            await supabaseClient
+                .from('players')
+                .update({ vite: currentLives })
+                .eq('id', userId);
+                
+            // Update UI if it's me
+            if (userId === currentPlayerId) {
+                document.getElementById('lives-count').textContent = currentLives;
+                showToast("Hai guadagnato una vita!");
+            }
+        } catch (err) {
+            console.error("Error increasing lives:", err);
+        }
+    }
+
+    async function handleGameOver(userId) {
+        if (userId !== currentPlayerId) return;
+        
+        // Show Game Over Modal
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
+        overlay.style.zIndex = '6000';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.color = 'white';
+        overlay.style.textAlign = 'center';
+        
+        overlay.innerHTML = `
+            <h1 style="color: #c0392b; font-size: 4rem; margin-bottom: 20px;">GAME OVER</h1>
+            <p style="font-size: 1.5rem; margin-bottom: 30px;">Hai finito le vite!</p>
+            <p style="font-size: 1rem; color: #7f8c8d;">Il tuo account verrà cancellato...</p>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        // Delete player from DB
+        try {
+            await supabaseClient
+                .from('players')
+                .delete()
+                .eq('id', currentPlayerId);
+                
+            // After 3 seconds, reload page to reset
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+            
+        } catch (e) {
+            console.error("Error deleting player:", e);
+            alert("Errore nell'eliminazione del giocatore.");
+        }
+    }
+
+    // Helper to create card DOM element
+    function createCardElement(card) {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'tombola-card';
+        cardEl.style.position = 'relative'; // Needed for absolute overlay
+
+        // Flash Overlay
+        if (card.flashState) {
+            const overlay = document.createElement('div');
+            overlay.className = `card-flash-overlay flash-${card.flashState}`;
+            overlay.textContent = card.flashNumber;
+            cardEl.appendChild(overlay);
+        }
+        
+        // Header
+        const header = document.createElement('div');
+        header.className = 'card-header';
+        // Logic: 15 total numbers. Matches start at 0. Missing displayed as negative countdown or positive?
+        // Previous code: `const missing = card.matches - 15;` (e.g. 0 - 15 = -15).
+        const missing = card.matches - 15; 
+        header.innerHTML = `
+            <span>Cartella #${card.id}</span>
+            <span class="match-count">Tombola: ${missing}</span>
+        `;
+        cardEl.appendChild(header);
+
+        // Grid
+        const gridEl = document.createElement('div');
+        gridEl.className = 'card-grid';
+
+        for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 9; c++) {
+                const cellVal = card.grid[r][c];
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                
+                if (cellVal === 0) {
+                    cell.classList.add('empty');
+                } else {
+                    cell.textContent = cellVal;
+                    if (extractedNumbers.has(cellVal)) {
+                        cell.classList.add('marked');
+                    }
+                }
+                gridEl.appendChild(cell);
+            }
+        }
+        cardEl.appendChild(gridEl);
+        return cardEl;
     }
 
     function resetGame() {
-        // Removed original confirm dialog
         showResetModal();
     }
+
 
     // Card Generation Logic
     function generateCard(id) {
@@ -488,15 +2812,19 @@
     }
     
     // Allow pressing Enter to submit
+    /*
     document.getElementById('input-number').addEventListener("keypress", function(event) {
         if (event.key === "Enter") {
             extractNumber();
         }
     });
+    */
 
     function updateHistory() {
-        const list = Array.from(extractedNumbers).join(', ');
-        document.getElementById('extracted-list').textContent = list;
+        const allNumbers = Array.from(extractedNumbers);
+        // Show only last 5, reversed (newest first)
+        const last5 = allNumbers.slice(-5).reverse();
+        document.getElementById('extracted-list').textContent = last5.join(', ');
     }
 
     function checkMatches(num) {
@@ -525,41 +2853,7 @@
         container.innerHTML = '';
 
         cards.forEach(card => {
-            const cardEl = document.createElement('div');
-            cardEl.className = 'tombola-card';
-            
-            // Header
-            const header = document.createElement('div');
-            header.className = 'card-header';
-            const missing = card.matches - 15;
-            header.innerHTML = `
-                <span>Cartella #${card.id}</span>
-                <span class="match-count">Tombola: ${missing}</span>
-            `;
-            cardEl.appendChild(header);
-
-            // Grid
-            const gridEl = document.createElement('div');
-            gridEl.className = 'card-grid';
-
-            for (let r = 0; r < 3; r++) {
-                for (let c = 0; c < 9; c++) {
-                    const cellVal = card.grid[r][c];
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    
-                    if (cellVal === 0) {
-                        cell.classList.add('empty');
-                    } else {
-                        cell.textContent = cellVal;
-                        if (extractedNumbers.has(cellVal)) {
-                            cell.classList.add('marked');
-                        }
-                    }
-                    gridEl.appendChild(cell);
-                }
-            }
-            cardEl.appendChild(gridEl);
+            const cardEl = createCardElement(card);
             container.appendChild(cardEl);
         });
     }
