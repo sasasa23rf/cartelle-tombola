@@ -273,19 +273,98 @@
 <body>
 
 <header>
-    <h1 style="font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 2px; text-transform: uppercase; text-shadow: 3px 3px 0 #2c3e50; font-size: 2.5rem; margin-bottom: 0;">BINGO AZIONE</h1>
+    <h1 style="font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 2px; text-transform: uppercase; text-shadow: 3px 3px 0 #2c3e50; font-size: 2.5rem; margin-bottom: 0;">ATTACCOTOMBOLA</h1>
     <h2 id="player-header-name"></h2>
 </header>
 
 <div class="container">
     <!-- Setup Screen -->
     <div id="setup-screen">
-        <p>Inserisci i tuoi dati:</p>
+        <p style="font-size: 3rem; margin: 0;">⚔️</p>
         <input type="text" id="player-name" placeholder="Nome Giocatore" style="padding: 10px; font-size: 1.2rem; width: 200px; text-align: center; border: 2px solid #ddd; border-radius: 5px; margin: 10px 0;">
         <br>
         <input type="password" id="player-password" placeholder="Password" style="padding: 10px; font-size: 1.2rem; width: 200px; text-align: center; border: 2px solid #ddd; border-radius: 5px; margin: 10px 0;">
         <br><br>
-        <button onclick="startRoulette()">Entra</button>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button onclick="startRoulette()" style="background-color: #27ae60;">Entra</button>
+            <button onclick="showRulesModal()" style="background-color: #f39c12; color: #2c3e50; font-weight: bold;">REGOLE</button>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; position: relative;">
+            <button onclick="closeRulesModal()" style="position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-weight: bold;">X</button>
+            
+            <h2 style="color: #2c3e50; text-align: center; margin-top: 0;">📜 REGOLAMENTO DI GIOCO</h2>
+            
+            <div style="text-align: left; line-height: 1.6; color: #333;">
+                <h3 style="color: #e67e22;">🎯 SCOPO DEL GIOCO</h3>
+                <p>Il gioco si basa su una cartella della <strong>Tombola</strong>.<br>Vince il giocatore che per primo realizza la <strong>TOMBOLA</strong>.</p>
+
+                <h3 style="color: #27ae60;">🎲 INIZIO DELLA PARTITA</h3>
+                <ul style="padding-left: 20px;">
+                    <li>Ogni giocatore sceglie una cartella della Tombola.</li>
+                    <li>Ogni giocatore inizia con <strong>2 VITE</strong>.</li>
+                    <li>All’inizio della partita, ogni giocatore riceve <strong>1 Carta Azione</strong>.</li>
+                </ul>
+
+                <h3 style="color: #c0392b;">❤️ VITE</h3>
+                <p>Le vite rappresentano la sopravvivenza nel gioco.</p>
+                <ul style="padding-left: 20px;">
+                    <li>Se un giocatore arriva a <strong>0 VITE</strong>, perde ed <strong>esce dal gioco</strong>.</li>
+                    <li>È possibile guadagnare o perdere vite tramite gli attacchi.</li>
+                    <li>Le vite possono anche essere <strong>spese</strong> per ottenere informazioni sugli avversari.</li>
+                </ul>
+
+                <h3 style="color: #8e44ad;">⚔️ ATTACCHI TRA GIOCATORI</h3>
+                <p>Un giocatore può attaccare un altro giocatore. Il primo attacco è consentito solo dopo l’estrazione dei <strong>primi 5 numeri</strong>.</p>
+                <p><strong>🔎 Come si risolve un attacco:</strong><br>Si confrontano i numeri segnati sulle cartelle:</p>
+                <ul style="padding-left: 20px;">
+                    <li>Se l’avversario ha segnato <strong>MENO numeri</strong> rispetto all’attaccante:
+                        <ul>
+                            <li>L’avversario perde 1 vita</li>
+                            <li>L’attaccante guadagna 1 vita</li>
+                        </ul>
+                    </li>
+                    <li>Se l’attaccante ha segnato <strong>MENO numeri</strong>:
+                        <ul>
+                            <li>L’attaccante perde 1 vita</li>
+                            <li>L’avversario non perde nulla</li>
+                        </ul>
+                    </li>
+                    <li>Se i due giocatori hanno lo stesso numero di numeri rimanenti: <strong>Nessuno perde vite</strong>.</li>
+                </ul>
+                <p><strong>⏱️ Limitazione:</strong> Dopo un attacco (vinto o perso), non puoi riattaccare lo stesso giocatore prima che vengano estratti altri <strong>10 numeri</strong>.</p>
+
+                <h3 style="color: #f1c40f;">🃏 CARTE AZIONE</h3>
+                <p>Nel gioco esistono 5 Carte Azione:</p>
+                <ul style="padding-left: 20px;">
+                    <li><strong>🔁 Scambia cartella</strong> con un giocatore a tua scelta</li>
+                    <li><strong>➡️ Scambia solo la prima riga</strong> della cartella</li>
+                    <li><strong>➡️ Scambia solo la seconda riga</strong></li>
+                    <li><strong>➡️ Scambia solo la terza riga</strong></li>
+                    <li><strong>🎯 Estrai un numero a tua scelta</strong> (vale per tutti i giocatori)</li>
+                </ul>
+
+                <h3 style="color: #2980b9;">⭐ SCHERMATA BONUS</h3>
+                <p>Durante la partita può apparire una Schermata Bonus con una domanda matematica. Il giocatore che risponde per primo e correttamente vince una <strong>Carta Bonus Azione</strong>.</p>
+
+                <h3 style="color: #34495e;">👁️ SPIARE GLI AVVERSARI</h3>
+                <p>Puoi spendere <strong>1 vita</strong> per:</p>
+                <ul style="padding-left: 20px;">
+                    <li>Scoprire quante vite ha un avversario</li>
+                    <li>Scoprire quanti numeri gli mancano per fare Tombola</li>
+                </ul>
+
+                <h3 style="color: #c0392b;">❌ ELIMINAZIONE</h3>
+                <p>Se un giocatore arriva a <strong>0 VITE</strong>, viene eliminato ed esce dalla partita.</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="closeRulesModal()" style="background-color: #3498db; width: 100%; padding: 15px; font-size: 1.2rem;">HO CAPITO</button>
+            </div>
+        </div>
     </div>
 
     <!-- Roulette Screen -->
@@ -1600,6 +1679,14 @@
     }
 
     // Setup Logic
+    function showRulesModal() {
+        document.getElementById('rules-modal').style.display = 'flex';
+    }
+
+    function closeRulesModal() {
+        document.getElementById('rules-modal').style.display = 'none';
+    }
+
     async function startRoulette() {
         const nameInput = document.getElementById('player-name');
         const passwordInput = document.getElementById('player-password');
