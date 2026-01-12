@@ -200,6 +200,8 @@
     <button id="spinBtn">GIRA!</button>
     <div id="result"></div>
 
+    <!-- OneSignal Bell replaces the custom checkbox -->
+
     <button id="installBtn">📲 Installa App</button>
 
     <!-- iOS Instructions -->
@@ -210,7 +212,19 @@
         <p>2. Scorri e seleziona <strong>"Aggiungi alla schermata Home"</strong> ➕</p>
     </div>
 
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(function(OneSignal) {
+            OneSignal.init({
+                appId: "3cc59c8b-c638-4137-893f-1bef78fc6e0c",
+                notifyButton: {
+                    enable: true, /* Mostra campanella in basso a destra */
+                },
+                allowLocalhostAsSecureOrigin: true,
+            });
+        });
+        
         const wheel = document.getElementById('wheel');
         const spinBtn = document.getElementById('spinBtn');
         const resultDiv = document.getElementById('result');
@@ -306,14 +320,9 @@
             });
         });
 
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then((reg) => console.log('Service Worker registered', reg))
-                    .catch((err) => console.log('Service Worker registration failed', err));
-            });
-        }
+        // REMOVED OLD LOCAL NOTIFICATION & SERVICE WORKER LOGIC
+        // OneSignal handles both Service Worker registration and Notifications now.
+        
     </script>
 </body>
 </html>
